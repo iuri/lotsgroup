@@ -116,24 +116,25 @@ JOIN Top5Customers tc ON s2.CustomerID = tc.CustomerID
 CREATE SCHEMA DW;
 
 CREATE OR ALTER VIEW DW.FactSales AS 
-    SELECT s1.SalesOrderID, s2.CustomerID, s1.ProductID, s1.LineTotal
+    SELECT DISTINCT s1.SalesOrderID, s2.CustomerID, s1.ProductID, s1.LineTotal
     FROM [SalesLT].[SalesOrderDetail] s1
     LEFT JOIN [SalesLT].[SalesOrderHeader] s2 ON s2.SalesOrderID = s1.SalesOrderID;
 
 CREATE OR ALTER VIEW DW.DimSales AS 
-    SELECT s1.SalesOrderID, s1.SalesOrderDetailID, s2.SalesOrderNumber
+    SELECT DISTINCT s1.SalesOrderID, s1.SalesOrderDetailID, s2.SalesOrderNumber
     FROM [SalesLT].[SalesOrderDetail] s1
     LEFT JOIN [SalesLT].[SalesOrderHeader] s2 ON s2.SalesOrderID = s1.SalesOrderID;
 
 
 CREATE OR ALTER VIEW DW.DimProducts AS 
-    SELECT p.ProductID, p.Name
+    SELECT DISTINCT p.ProductID, p.Name
     FROM [SalesLT].[Product] p;
                
+
 CREATE OR ALTER VIEW DW.DimCustomers AS 
-    SELECT c.CustomerID, c.FirstName, c.LastName
-    FROM [SalesLT].[Customer] c;
-               
+    SELECT DISTINCT c.CustomerID, c.FirstName, c.LastName
+    FROM [SalesLT].[Customer] c;              
+
 
 CREATE OR ALTER VIEW DW.DimTime AS
     SELECT 
@@ -144,4 +145,22 @@ CREATE OR ALTER VIEW DW.DimTime AS
     FROM [SalesLT].[SalesOrderHeader] t;
 
 
+
+
+ALTER TABLE [SalesLT].[Customer] ADD customer_group VARCHAR(20);
+-- Update classification information in DimCustomers
+UPDATE [SalesLT].[Customer]
+SET customer_group = CASE
+    WHEN CustomerID IN (
+        SELECT CustomerID
+        FROM DW.FactSales
+        GROUP BY CustomerID
+        HAVING COUNT(*) > 30
+    ) THEN 'More than 30 sales'
+    ELSE '30 or less sales'
+END;
+
+CREATE OR ALTER VIEW DW.DimCustomers AS 
+    SELECT DISTINCT c.CustomerID, c.FirstName, c.LastName, c.customer_group
+    FROM [SalesLT].[Customer] c;              
 
